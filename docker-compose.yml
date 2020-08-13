@@ -1,0 +1,84 @@
+# Define variables into ./.env file
+
+version: '2'
+
+services:
+    web:
+        build:
+            context: ./dist/docker_php7
+            dockerfile: Dockerfile
+        ports:
+            - 4080:80
+        volumes:
+            - ./:/app/
+        links:
+            - redis_session:redis_session
+            - redis_cache:redis_cache
+        depends_on:
+            - elasticsearch
+            - redis_session
+            - redis_cache
+            - mysql
+        networks:
+            - magento
+
+    mysql:
+        image: library/mysql:8.0
+        ports:
+            - 4306:3306
+        volumes:
+            -  /data/docker/magento-sandbox/mysql/data:/var/lib/mysql/
+            - ./dist/docker/mysql/conf.d:/etc/mysql/conf.d
+            - ./:/var/www/html/
+        environment:
+            - MYSQL_ROOT_PASSWORD=admin123
+            - MYSQL_DATABASE=magento-sandbox
+            - MYSQL_USER=magento
+            - MYSQL_PASSWORD=admin123
+        networks:
+            - magento
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        ports:
+            - 4680:80
+        depends_on:
+            - mysql
+        environment:
+            PMA_HOST: mysql
+        networks:
+            - magento
+
+    mailhog:
+        image: mailhog/mailhog:v1.0.0
+        ports:
+            - "1025:1025"
+            - "8025:8025"
+        networks:
+            - magento
+
+    elasticsearch:
+        user: $USER
+        image: library/elasticsearch:7.6.0
+        volumes:
+            - /data/docker/magento/elastic/data:/usr/share/elasticsearch/data
+        networks:
+            - magento
+        environment:
+            - node.name=es01
+            - cluster.name=es-docker-cluster
+            - discovery.type=single-node
+
+    redis_session:
+        image: redis
+        networks:
+            - magento
+
+    redis_cache:
+        image: redis
+        networks:
+            - magento
+
+networks:
+    magento:
+        driver: bridge
